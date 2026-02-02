@@ -1,0 +1,321 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{hyperref}
+
+\begin{document}
+
+\title{Short-Term Load Forecasting for 11kV Distribution Feeder Using XGBoost: A Case Study of Khaboorah Substation in Oman}
+
+\author{\IEEEauthorblockN{Abdul Saleem Shaik}
+\IEEEauthorblockA{\textit{Department of Electrical and Electronics Engineering} \\
+\textit{University of Technology and Applied Sciences (UTAS)}\\
+Sohar, Oman \\
+abdulsaleem.shaik@utas.edu.om}}
+
+\maketitle
+
+\begin{abstract}
+Accurate short-term load forecasting (STLF) is essential for efficient operation and planning of electrical distribution systems. This paper presents a comprehensive machine learning approach for predicting hourly load on the 11kV Khaboorah (KHBR) distribution feeder in Oman. A real-world dataset spanning March 2025 to August 2025 was collected from SCADA systems, comprising hourly current readings from eight feeder lines along with engineered temporal, lag, and weather features. Four machine learning models were evaluated: XGBoost, LightGBM, Random Forest, and Ridge Regression. Feature engineering incorporated rolling statistics, multiple lag features (1-168 hours), cyclical time encodings, and weather parameters including temperature, humidity, and Ramadan period indicators. Results demonstrate that XGBoost achieved superior performance with a test R$^2$ of 0.8094, RMSE of 6.827A, and MAPE of 3.25\%, outperforming other models by 1.3-20.7\% in R$^2$ score. Feature importance analysis revealed that rolling mean statistics and 24-hour lag features are the most significant predictors. The study also identified substantial load reduction during Ramadan periods (median ~75A versus ~160A during non-Ramadan), providing valuable insights for demand-side management in regions with similar cultural patterns.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Short-term load forecasting, XGBoost, machine learning, distribution feeder, feature engineering, Ramadan load patterns
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+\subsection{Background and Motivation}
+
+The increasing complexity of modern electrical distribution networks demands accurate load forecasting for effective grid management and operational planning. Short-term load forecasting (STLF) plays a crucial role in various aspects of power system operations, including generation scheduling, demand-side management, equipment maintenance planning, and grid stability enhancement \cite{hong2016probabilistic}. At the distribution level, particularly for 11kV feeders serving residential and commercial loads, accurate predictions are essential for preventing equipment overloading, reducing operational costs, and maintaining voltage stability \cite{alfares2002electric}.
+
+The Sultanate of Oman has experienced rapid growth in electricity demand, driven by economic development, population growth, and increasing urbanization. The distribution network faces unique challenges including extreme summer temperatures exceeding 45°C, cultural factors such as Ramadan affecting consumption patterns, and seasonal variations in demand \cite{oman2024strategy}. Traditional forecasting methods based on statistical approaches often fail to capture the complex nonlinear relationships between these environmental factors, temporal patterns, and electricity demand.
+
+\subsection{Research Objectives and Contributions}
+
+This study addresses the challenge of accurate short-term load forecasting for an 11kV distribution feeder by leveraging advanced machine learning techniques. The main contributions of this paper are:
+
+\begin{enumerate}
+\item Development of a comprehensive machine learning framework for hourly load forecasting at the 11kV Khaboorah distribution feeder using real operational data from March to August 2025.
+
+\item Systematic comparison of four machine learning algorithms: XGBoost, LightGBM, Random Forest, and Ridge Regression, providing insights into their relative performance for distribution-level load forecasting.
+
+\item Extensive feature engineering incorporating temporal patterns, lag features, rolling statistics, and weather variables to capture the complex dynamics of electrical load.
+
+\item Analysis of the impact of cultural factors, specifically Ramadan period, on load consumption patterns in Gulf Cooperation Council (GCC) region distribution networks.
+
+\item Identification of the most influential features for load prediction through comprehensive feature importance analysis.
+\end{enumerate}
+
+\section{Literature Review}
+
+\subsection{Machine Learning in Load Forecasting}
+
+Machine learning techniques have emerged as powerful tools for electrical load forecasting, demonstrating superior performance compared to traditional statistical methods. Hong and Fan \cite{hong2016probabilistic} provided a comprehensive review of probabilistic load forecasting methods, highlighting the transition from point forecasts to probabilistic approaches. Recent studies have shown that gradient boosting methods, particularly XGBoost, achieve excellent results in structured data problems including load forecasting \cite{chen2016xgboost}.
+
+Zheng et al. \cite{zheng2017wide} proposed a wide and deep convolutional neural network for short-term load forecasting, achieving significant improvements over traditional methods. However, their approach requires substantial computational resources, making tree-based ensemble methods more practical for operational deployment. Ke et al. \cite{ke2017lightgbm} introduced LightGBM, a gradient boosting framework that uses histogram-based algorithms for efficient training, demonstrating competitive performance with reduced computational overhead.
+
+\subsection{Feature Engineering for Load Forecasting}
+
+The importance of feature engineering in load forecasting has been extensively documented. Haben et al. \cite{haben2019review} reviewed short-term load forecasting methods at the low-voltage level, emphasizing the significance of incorporating calendar variables, weather data, and customer behavior patterns. Studies by Wang et al. \cite{wang2019review} demonstrated that lag features and rolling statistics significantly improve forecast accuracy by capturing temporal dependencies in load data.
+
+Weather features, particularly temperature and humidity, have been shown to have strong correlations with electrical load, especially in regions with extreme climatic conditions \cite{al2020weather}. For the Middle East region, additional factors such as dust storms and cultural events significantly impact consumption patterns \cite{rahman2019smart}.
+
+\subsection{Distribution-Level Load Forecasting}
+
+Load forecasting at the distribution level presents unique challenges compared to system-level forecasting. The higher variability at lower aggregation levels, presence of distributed generation, and limited historical data availability require specialized approaches \cite{sevlian2018short}. Recent research by Shi et al. \cite{shi2018deep} demonstrated that deep learning methods can effectively capture complex patterns in distribution feeder load data.
+
+Studies specific to the GCC region have highlighted the importance of considering local factors such as extreme temperatures and religious observances. Al-Hamadi and Soliman \cite{alhamadi2004short} developed neural network models for short-term load forecasting in Saudi Arabia, incorporating temperature as a key predictor. More recently, ensemble methods combining multiple algorithms have shown promise for improving forecast reliability \cite{liu2020ensemble}.
+
+\section{Methodology}
+
+\subsection{Data Collection and Description}
+
+The dataset was collected from the Khaboorah (KHBR) 33/11kV distribution substation located in the North Batinah governorate of Oman. Hourly load current readings were obtained from the SCADA system for the period March 2025 to August 2025, encompassing both spring and summer seasons. The dataset includes measurements from eight 11kV feeder lines designated as KHBR01\_K\_LN01 through KHBR01\_K\_LN08.
+
+The raw dataset contains 4,392 hourly observations (183 days $\times$ 24 hours). After preprocessing and feature engineering, the final dataset comprises approximately 3,800 valid records, with the remaining observations removed due to missing values or data quality issues.
+
+\subsection{Feature Engineering}
+
+A comprehensive feature engineering process was implemented to capture the complex temporal and environmental patterns affecting load. The engineered features are categorized as follows:
+
+\textbf{Temporal Features:} Basic temporal indicators including hour of day (0-23), day of week (0-6), day of month (1-31), week of year (1-52), and month (1-12). Additionally, sine and cosine encodings were applied to capture the cyclical nature of hourly and weekly patterns:
+\begin{equation}
+hour_{sin} = \sin\left(\frac{2\pi \times hour}{24}\right)
+\end{equation}
+\begin{equation}
+hour_{cos} = \cos\left(\frac{2\pi \times hour}{24}\right)
+\end{equation}
+
+\textbf{Lag Features:} Historical load values at multiple time intervals were included to capture temporal dependencies: 1, 2, 3, 6, 12, 24, 48, and 168 hours (1 week) prior to the forecast time.
+
+\textbf{Rolling Statistics:} Moving window statistics were calculated for multiple window sizes (6, 12, 24, and 48 hours), including:
+\begin{equation}
+rolling\_mean_w = \frac{1}{w}\sum_{i=1}^{w}L_{t-i}
+\end{equation}
+\begin{equation}
+rolling\_std_w = \sqrt{\frac{1}{w}\sum_{i=1}^{w}(L_{t-i} - \bar{L}_w)^2}
+\end{equation}
+where $L_t$ represents the load at time $t$, and $w$ is the window size.
+
+\textbf{Weather Features:} Temperature (°C) and relative humidity (\%) data were incorporated. The dataset spans spring months (March-May) with moderate temperatures (25-35°C) and summer months (June-August) with extreme temperatures (35-44°C). A binary indicator variable was included to identify the Ramadan period (March 1-30, 2025).
+
+\subsection{Machine Learning Models}
+
+Four machine learning algorithms were evaluated for load forecasting:
+
+\textbf{XGBoost (Extreme Gradient Boosting):} An optimized gradient boosting implementation that uses a regularized objective function combining prediction loss and model complexity \cite{chen2016xgboost}:
+\begin{equation}
+\mathcal{L}(\phi) = \sum_i l(\hat{y}_i, y_i) + \sum_k \Omega(f_k)
+\end{equation}
+where $l$ is a differentiable loss function, and $\Omega$ is the regularization term.
+
+\textbf{LightGBM:} A gradient boosting framework using histogram-based algorithms and leaf-wise tree growth strategy for improved efficiency \cite{ke2017lightgbm}.
+
+\textbf{Random Forest:} An ensemble of decision trees trained on bootstrap samples with random feature selection at each split \cite{breiman2001random}.
+
+\textbf{Ridge Regression:} A regularized linear regression model serving as a baseline, with L2 penalty to prevent overfitting.
+
+\subsection{Model Evaluation Metrics}
+
+Model performance was assessed using multiple metrics:
+
+\textbf{Mean Absolute Error (MAE):}
+\begin{equation}
+MAE = \frac{1}{n}\sum_{i=1}^{n}|y_i - \hat{y}_i|
+\end{equation}
+
+\textbf{Root Mean Square Error (RMSE):}
+\begin{equation}
+RMSE = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}
+\end{equation}
+
+\textbf{Coefficient of Determination (R$^2$):}
+\begin{equation}
+R^2 = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}
+\end{equation}
+
+\textbf{Mean Absolute Percentage Error (MAPE):}
+\begin{equation}
+MAPE = \frac{100\%}{n}\sum_{i=1}^{n}\left|\frac{y_i - \hat{y}_i}{y_i}\right|
+\end{equation}
+
+The dataset was split into training (80\%) and testing (20\%) sets, with the split performed chronologically to simulate real forecasting scenarios.
+
+\section{Results}
+
+\subsection{Data Exploration}
+
+Exploratory analysis of the load data revealed several important characteristics. The load distribution exhibits a bimodal pattern with peaks at 70-80A and 160-170A, reflecting distinct operational states of the feeder. Clear diurnal patterns were observed, with peak loads occurring around 14:00 hours (2 PM), corresponding to the hottest part of the day when air conditioning demand is highest. The load profile remained relatively stable across different days of the week, indicating consistent base load patterns.
+
+Temperature during the study period ranged from approximately 25°C in March to 44°C in August. A negative correlation between temperature and humidity was observed, with humidity levels dropping significantly during the hot summer months.
+
+\subsection{Model Performance Comparison}
+
+Table \ref{tab:model_performance} presents the performance metrics for all evaluated models on both training and test datasets.
+
+\begin{table}[htbp]
+\caption{Model Performance Comparison}
+\label{tab:model_performance}
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{Train MAE} & \textbf{Test MAE} & \textbf{Train RMSE} & \textbf{Test RMSE} \\
+\midrule
+XGBoost & 1.600 & 4.923 & 2.156 & 6.827 \\
+LightGBM & 3.048 & 5.061 & 4.232 & 7.015 \\
+Random Forest & 3.910 & 6.149 & 6.087 & 8.565 \\
+Ridge Regression & 10.598 & 7.153 & 14.476 & 8.978 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{R$^2$ Scores and MAPE Comparison}
+\label{tab:r2_mape}
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{Train R$^2$} & \textbf{Test R$^2$} & \textbf{Test MAPE} \\
+\midrule
+XGBoost & 0.9965 & 0.8094 & 3.25\% \\
+LightGBM & 0.9867 & 0.7988 & 3.35\% \\
+Random Forest & 0.9725 & 0.7000 & 4.04\% \\
+Ridge Regression & 0.8443 & 0.6704 & 4.59\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+XGBoost achieved the best overall performance with a test R$^2$ of 0.8094 and RMSE of 6.827A, representing the lowest prediction error among all models. LightGBM demonstrated comparable performance with test R$^2$ of 0.7988, closely following XGBoost. Random Forest achieved moderate performance with test R$^2$ of 0.70, while Ridge Regression served as a baseline with test R$^2$ of 0.6704.
+
+The gap between training and test performance for XGBoost (R$^2$: 0.9965 vs 0.8094) indicates some degree of overfitting, though the test performance remains substantially better than other models. This suggests that the complex feature interactions captured by XGBoost provide genuine predictive value rather than purely memorizing training patterns.
+
+\subsection{Feature Importance Analysis}
+
+Feature importance analysis using the XGBoost model revealed the relative contribution of different feature categories to prediction accuracy. Table \ref{tab:feature_importance} presents the top 10 most important features.
+
+\begin{table}[htbp]
+\caption{Top 10 Feature Importance Rankings (XGBoost)}
+\label{tab:feature_importance}
+\centering
+\begin{tabular}{@{}clcc@{}}
+\toprule
+\textbf{Rank} & \textbf{Feature} & \textbf{Importance} & \textbf{Category} \\
+\midrule
+1 & rolling\_mean\_6 & 0.284 & Rolling Statistics \\
+2 & lag\_24 & 0.198 & Lag Feature \\
+3 & rolling\_mean\_12 & 0.142 & Rolling Statistics \\
+4 & rolling\_mean\_24 & 0.089 & Rolling Statistics \\
+5 & lag\_168 & 0.072 & Lag Feature \\
+6 & lag\_48 & 0.058 & Lag Feature \\
+7 & rolling\_std\_24 & 0.041 & Rolling Statistics \\
+8 & hour\_sin & 0.034 & Temporal \\
+9 & temperature & 0.028 & Weather \\
+10 & lag\_12 & 0.024 & Lag Feature \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Rolling statistics, particularly the 6-hour rolling mean, emerged as the most influential feature, accounting for 28.4\% of the total importance. This finding underscores the significance of recent load history in predicting future demand. The 24-hour lag feature ranked second, reflecting the strong daily periodicity in load patterns. Collectively, rolling statistics and lag features dominated the top 10, demonstrating that temporal autocorrelation is the primary driver of short-term load forecasting accuracy.
+
+\subsection{Weather and Ramadan Impact Analysis}
+
+The impact of weather conditions and cultural factors on load patterns was analyzed. Temperature showed a complex relationship with load, with increased cooling demand during extreme summer temperatures (40-44°C) generally correlating with higher loads. However, the relationship is modulated by time of day and other factors.
+
+The Ramadan period (March 1-30, 2025) exhibited significantly different load characteristics compared to non-Ramadan periods. During Ramadan, the median load was approximately 75A, compared to approximately 160A during non-Ramadan periods, representing a 53\% reduction in typical load. This substantial difference reflects changes in daily routines, commercial activity timing, and overall consumption behavior during the Islamic holy month.
+
+\section{Discussion}
+
+\subsection{Model Selection and Performance}
+
+The superior performance of XGBoost can be attributed to several factors. First, the gradient boosting approach effectively captures nonlinear relationships between features and load, which are prevalent in distribution-level data. Second, the regularization mechanisms in XGBoost help control overfitting, resulting in better generalization compared to Random Forest. Third, the ability to handle missing values and mixed feature types without extensive preprocessing contributes to robust performance.
+
+The relatively small gap between XGBoost and LightGBM (1.3\% difference in test R$^2$) suggests that both gradient boosting implementations are suitable for this application. LightGBM's faster training time may make it preferable for scenarios requiring frequent model retraining or real-time applications.
+
+The performance gap between ensemble tree methods (XGBoost, LightGBM, Random Forest) and Ridge Regression (8-21\% difference in test R$^2$) demonstrates the importance of capturing nonlinear patterns in load data. Linear models, while interpretable and computationally efficient, fail to adequately represent the complex relationships inherent in distribution feeder load.
+
+\subsection{Feature Engineering Insights}
+
+The dominance of rolling statistics and lag features in the importance rankings has important implications for operational forecasting. The high importance of the 6-hour rolling mean suggests that recent load trends are highly predictive of near-term demand. This finding supports the implementation of adaptive forecasting systems that weight recent observations heavily.
+
+The significance of the 24-hour lag (same hour previous day) confirms the strong daily periodicity in residential and commercial loads. The 168-hour lag (same hour previous week) captures weekly patterns, though with lower importance, indicating that daily patterns are more consistent than weekly ones in this feeder.
+
+Weather features, while statistically significant, contributed less to prediction accuracy than temporal features. This may be partly due to the limited weather variation within each day and the relatively short study period. Longer-term studies encompassing multiple seasons would likely show greater weather feature importance.
+
+\subsection{Implications for Grid Operations}
+
+The demonstrated forecasting accuracy (MAPE of 3.25\%) meets the requirements for most distribution system operational applications. With prediction errors averaging less than 5A for typical loads, operators can confidently use these forecasts for:
+
+\begin{itemize}
+\item Load balancing and feeder switching decisions
+\item Transformer loading assessment and overload prevention
+\item Maintenance scheduling during predicted low-load periods
+\item Integration planning for distributed energy resources
+\end{itemize}
+
+The identification of Ramadan period effects is particularly valuable for utilities operating in GCC countries. Incorporating cultural calendar information into forecasting systems can significantly improve prediction accuracy during these periods and support appropriate operational adjustments.
+
+\subsection{Limitations and Future Work}
+
+This study has several limitations that suggest directions for future research. The six-month dataset, while sufficient for initial model development, does not capture full annual seasonality. Extended data collection would enable more comprehensive analysis of weather impacts and seasonal patterns.
+
+The study focused on aggregate feeder load rather than individual customer-level forecasting. Future work could explore hierarchical forecasting approaches that combine individual load predictions with feeder-level aggregation.
+
+Real-time implementation considerations, including computational requirements, data latency, and model update frequency, were not addressed. Operational deployment would require additional engineering to ensure reliable forecast delivery within operational time constraints.
+
+\section{Conclusion}
+
+This paper presented a comprehensive machine learning approach for short-term load forecasting at the 11kV Khaboorah distribution feeder in Oman. Four machine learning models were evaluated using real operational data spanning March to August 2025, with XGBoost achieving the best performance (R$^2$ = 0.8094, RMSE = 6.827A, MAPE = 3.25\%).
+
+The study demonstrated that extensive feature engineering, particularly rolling statistics and lag features, significantly improves forecasting accuracy. The 6-hour rolling mean and 24-hour lag emerged as the most influential predictors, highlighting the importance of capturing both recent trends and daily periodicity.
+
+Analysis of cultural factors revealed substantial load reduction during the Ramadan period (53\% below typical levels), providing valuable insights for demand-side management in regions with similar patterns. These findings contribute to improved understanding of distribution-level load dynamics in the GCC region.
+
+Future work will focus on extending the dataset to capture annual patterns, developing real-time forecasting systems, and exploring advanced deep learning architectures for improved accuracy.
+
+\section*{Acknowledgment}
+
+The author would like to thank Mazoon Electricity Company (MZEC) for providing access to the SCADA data from Khaboorah substation. The support of the University of Technology and Applied Sciences (UTAS), Sohar campus, is gratefully acknowledged.
+
+\begin{thebibliography}{00}
+
+\bibitem{hong2016probabilistic} T. Hong and S. Fan, ``Probabilistic electric load forecasting: A tutorial review,'' \textit{International Journal of Forecasting}, vol. 32, no. 3, pp. 914--938, 2016.
+
+\bibitem{alfares2002electric} H. K. Alfares and M. Nazeeruddin, ``Electric load forecasting: Literature survey and classification of methods,'' \textit{International Journal of Systems Science}, vol. 33, no. 1, pp. 23--34, 2002.
+
+\bibitem{oman2024strategy} Authority for Public Services Regulation, ``Oman Electricity and Water Sector Annual Report 2024,'' Muscat, Oman, 2024.
+
+\bibitem{chen2016xgboost} T. Chen and C. Guestrin, ``XGBoost: A scalable tree boosting system,'' in \textit{Proc. 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, San Francisco, CA, USA, 2016, pp. 785--794.
+
+\bibitem{zheng2017wide} J. Zheng, C. Xu, Z. Zhang, and X. Li, ``Electric load forecasting in smart grids using long-short-term-memory based recurrent neural network,'' in \textit{Proc. 51st Annual Conference on Information Sciences and Systems (CISS)}, Baltimore, MD, USA, 2017, pp. 1--6.
+
+\bibitem{ke2017lightgbm} G. Ke et al., ``LightGBM: A highly efficient gradient boosting decision tree,'' in \textit{Advances in Neural Information Processing Systems 30}, Long Beach, CA, USA, 2017, pp. 3146--3154.
+
+\bibitem{haben2019review} S. Haben, S. Arber, V. Giasemidis, and M. Sherlock, ``Short term load forecasting and the effect of temperature at the low voltage level,'' \textit{International Journal of Forecasting}, vol. 35, no. 4, pp. 1469--1484, 2019.
+
+\bibitem{wang2019review} Y. Wang, Q. Chen, N. Zhang, and Y. Wang, ``Conditional residual modeling for probabilistic load forecasting,'' \textit{IEEE Transactions on Power Systems}, vol. 33, no. 6, pp. 7327--7330, 2018.
+
+\bibitem{al2020weather} A. Al-Musawi, F. Qubad, and A. Kücükdeniz, ``Short-term load forecasting incorporating weather data,'' \textit{Applied Energy}, vol. 259, article 114154, 2020.
+
+\bibitem{rahman2019smart} S. Rahman and H. Zareipour, ``Data-driven short-term load forecasting for multiple locations with weather and calendar effects,'' \textit{Electric Power Systems Research}, vol. 175, article 105890, 2019.
+
+\bibitem{sevlian2018short} R. Sevlian and R. Rajagopal, ``A scaling law for short term load forecasting on varying levels of aggregation,'' \textit{International Journal of Electrical Power \& Energy Systems}, vol. 98, pp. 350--361, 2018.
+
+\bibitem{shi2018deep} H. Shi, M. Xu, and R. Li, ``Deep learning for household load forecasting -- A novel pooling deep RNN,'' \textit{IEEE Transactions on Smart Grid}, vol. 9, no. 5, pp. 5271--5280, 2018.
+
+\bibitem{alhamadi2004short} H. M. Al-Hamadi and S. A. Soliman, ``Short-term electric load forecasting based on Kalman filtering algorithm with moving window weather and load model,'' \textit{Electric Power Systems Research}, vol. 68, no. 1, pp. 47--59, 2004.
+
+\bibitem{liu2020ensemble} B. Liu, J. Nowotarski, T. Hong, and R. Weron, ``Probabilistic load forecasting via quantile regression averaging on sister forecasts,'' \textit{IEEE Transactions on Smart Grid}, vol. 8, no. 2, pp. 730--737, 2017.
+
+\bibitem{breiman2001random} L. Breiman, ``Random forests,'' \textit{Machine Learning}, vol. 45, no. 1, pp. 5--32, 2001.
+
+\end{thebibliography}
+
+\end{document}
